@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Truck, Trash2, ChevronDown } from "lucide-react";
 import { useToast } from "@/components/Toast";
+import { fetchApi, postApi, putApi, deleteApi } from "@/lib/fetchApi";
 
 interface Vehicle {
   id:string; plate:string; name:string; capacityKg:number;
@@ -32,7 +33,7 @@ export default function FleetPage() {
 
   const load = async () => {
     setLoading(true);
-    const data = await fetch("/api/vehicles").then(r=>r.json());
+    const data = await fetchApi<Vehicle[]>("/api/vehicles");
     setVehicles(data); setLoading(false);
   };
   useEffect(()=>{ load(); },[]);
@@ -40,16 +41,16 @@ export default function FleetPage() {
   const handleAdd = async () => {
     if (!form.plate) { toast("warning","Thiếu thông tin","Vui lòng nhập biển số xe"); return; }
     try {
-      await fetch("/api/vehicles",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(form)});
+      await postApi("/api/vehicles", form);
       toast("success","Đã thêm xe",form.plate);
       setShowAdd(false);
       setForm({plate:"",name:"",capacityKg:500,costPerKm:2.0,emissionPerKm:0.21});
       load();
-    } catch { toast("error","Lỗi","Không thể thêm xe"); }
+    } catch (err) { toast("error","Lỗi", err instanceof Error ? err.message : "Không thể thêm xe"); }
   };
 
   const handleStatusChange = async (v:Vehicle, next:string) => {
-    await fetch(`/api/vehicles/${v.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:next})});
+    await putApi(`/api/vehicles/${v.id}`, {status:next});
     setStatusDropdown(null);
     toast("success","Cập nhật trạng thái",`${v.plate} → ${STATUS_MAP[next]?.label}`);
     load();
@@ -58,7 +59,7 @@ export default function FleetPage() {
   const handleDelete = async (v:Vehicle) => {
     if (!confirm(`Xóa xe ${v.plate}?`)) return;
     try {
-      await fetch(`/api/vehicles/${v.id}`,{method:"DELETE"});
+      await deleteApi(`/api/vehicles/${v.id}`);
       toast("success","Đã xóa xe",v.plate);
       load();
     } catch { toast("error","Lỗi","Không thể xóa xe đang được sử dụng"); }

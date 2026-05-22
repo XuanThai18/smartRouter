@@ -9,6 +9,7 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
+import { fetchApi } from "@/lib/fetchApi";
 
 interface DashData {
   totalOrders: number; pendingOrders: number; availableVehicles: number;
@@ -85,10 +86,10 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     const [dash, ord] = await Promise.all([
-      fetch("/api/dashboard").then(r => r.json()),
-      fetch("/api/orders?limit=8").then(r => r.json()),
+      fetchApi<DashData>("/api/dashboard"),
+      fetchApi<Order[]>("/api/orders?limit=8"),
     ]);
-    setData(dash); setOrders(ord.slice ? ord.slice(0,8) : []);
+    setData(dash); setOrders(Array.isArray(ord) ? ord.slice(0, 8) : []);
     setLastUpdated(new Date()); setLoading(false);
   }, []);
 

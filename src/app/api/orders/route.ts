@@ -1,47 +1,66 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { ZodError } from "zod";
 import prisma from "@/lib/db";
+import { ok, created, badRequest, notFound, serverError, validationError } from "@/lib/api";
+import { CreateOrderSchema, UpdateOrderSchema } from "@/lib/validators/order.schema";
+import { DEFAULT_PAGE_LIMIT } from "@/lib/constants";
 
-// GET /api/orders
+// ── GET /api/orders ──────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status");
-  const date   = searchParams.get("date");
+  try {
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status") ?? undefined;
+    const date   = searchParams.get("date")   ?? undefined;
+    const limit  = Math.min(
+      Number(searchParams.get("limit") ?? DEFAULT_PAGE_LIMIT),
+      DEFAULT_PAGE_LIMIT
+    );
 
-  const where: Record<string, unknown> = {};
-  if (status) where.status = status;
-  if (date) {
-    const d = new Date(date);
-    where.date = { gte: d, lt: new Date(d.getTime() + 86400000) };
+    const where: Record<string, unknown> = {};
+    if (status) where.status = status;
+    if (date) {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return badRequest("Định dạng ngày không hợp lệ");
+      where.date = { gte: d, lt: new Date(d.getTime() + 86_400_000) };
+    }
+
+    const orders = await prisma.order.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+
+    return ok(orders);
+  } catch (err) {
+    return serverError("Lỗi khi lấy danh sách đơn hàng", err);
   }
-
-  const orders = await prisma.order.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
-
-  return NextResponse.json(orders);
 }
 
-// POST /api/orders — tạo đơn mới
+// ── POST /api/orders ─────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  try {
+    const body = await req.json();
+    const parsed = CreateOrderSchema.parse(body);
 
-  const order = await prisma.order.create({
-    data: {
-      customerName: body.customerName,
-      phone:        body.phone ?? null,
-      address:      body.address,
-      lat:          body.lat,
-      lng:          body.lng,
-      demandKg:     body.demandKg,
-      twStart:      body.twStart,
-      twEnd:        body.twEnd,
-      serviceMin:   body.serviceMin ?? 10,
-      status:       "PENDING",
-      date:         body.date ? new Date(body.date) : new Date(),
-    },
-  });
+    const order = await prisma.order.create({
+      data: {
+        customerName: parsed.customerName,
+        phone:        parsed.phone ?? null,
+        address:      parsed.address,
+        lat:          parsed.lat,
+        lng:          parsed.lng,
+        demandKg:     parsed.demandKg,
+        twStart:      parsed.twStart,
+        twEnd:        parsed.twEnd,
+        serviceMin:   parsed.serviceMin,
+        status:       "PENDING",
+        date:         parsed.date ? new Date(parsed.date) : new Date(),
+      },
+    });
 
-  return NextResponse.json(order, { status: 201 });
+    return created(order);
+  } catch (err) {
+    if (err instanceof ZodError) return validationError(err);
+    return serverError("Lỗi khi tạo đơn hàng", err);
+  }
 }

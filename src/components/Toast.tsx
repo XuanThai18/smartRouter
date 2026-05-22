@@ -11,15 +11,32 @@ const Ctx = createContext<ToastCtx>({ toast: () => {} });
 export const useToast = () => useContext(Ctx);
 
 const ICONS   = { success: CheckCircle2, error: XCircle, warning: AlertTriangle, info: Info };
-const COLORS  = {
-  success: "border-l-[hsl(var(--green))]   bg-[hsl(var(--green-dim))]   text-[hsl(var(--green))]",
-  error:   "border-l-[hsl(var(--red))]     bg-[hsl(var(--red-dim))]     text-[hsl(var(--red))]",
-  warning: "border-l-[hsl(var(--orange))]  bg-[hsl(var(--orange-dim))]  text-[hsl(var(--orange))]",
-  info:    "border-l-[hsl(var(--primary))] bg-[hsl(var(--primary-dim))] text-[hsl(var(--primary))]",
+const STYLES: Record<ToastType, { border: string; bg: string; icon: string }> = {
+  success: {
+    border: "border-l-[hsl(var(--green))]",
+    bg:     "bg-[hsl(var(--green-dim))]",
+    icon:   "text-[hsl(var(--green))]",
+  },
+  error: {
+    border: "border-l-[hsl(var(--red))]",
+    bg:     "bg-[hsl(var(--red-dim))]",
+    icon:   "text-[hsl(var(--red))]",
+  },
+  warning: {
+    border: "border-l-[hsl(var(--orange))]",
+    bg:     "bg-[hsl(var(--orange-dim))]",
+    icon:   "text-[hsl(var(--orange))]",
+  },
+  info: {
+    border: "border-l-[hsl(var(--primary))]",
+    bg:     "bg-[hsl(var(--primary-dim))]",
+    icon:   "text-[hsl(var(--primary))]",
+  },
 };
 
 function ToastItem({ t, onRemove }: { t: Toast; onRemove: (id: string) => void }) {
-  const Icon = ICONS[t.type];
+  const Icon  = ICONS[t.type];
+  const style = STYLES[t.type];
   const timerId = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
@@ -29,8 +46,8 @@ function ToastItem({ t, onRemove }: { t: Toast; onRemove: (id: string) => void }
 
   return (
     <div className={`flex items-start gap-3 p-4 rounded-[var(--radius)] border border-[hsl(var(--border))] border-l-4 shadow-xl
-      bg-[hsl(var(--bg-card))] fade-up min-w-[280px] max-w-[360px] ${COLORS[t.type].split(" ").slice(0,1).join(" ")}`}>
-      <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${COLORS[t.type].split(" ").slice(2).join(" ")}`} />
+      fade-up min-w-[280px] max-w-[360px] ${style.border} ${style.bg}`}>
+      <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${style.icon}`} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-[hsl(var(--text))]">{t.title}</p>
         {t.message && <p className="text-xs text-[hsl(var(--text-muted))] mt-0.5">{t.message}</p>}

@@ -5,6 +5,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   AreaChart, Area, BarChart, Bar, CartesianGrid, Legend,
 } from "recharts";
+import { fetchApi } from "@/lib/fetchApi";
 
 interface ReportData {
   weekly: Array<{date:string;cost:number;co2:number;orders:number;km:number}>;
@@ -34,7 +35,7 @@ export default function ReportsPage() {
   const [data, setData] = useState<ReportData|null>(null);
 
   useEffect(()=>{
-    fetch("/api/reports").then(r=>r.json()).then(setData);
+    fetchApi<ReportData>("/api/reports").then(setData);
   },[]);
 
   const skeleton = (h="h-4",w="w-full") => <div className={`${h} ${w} bg-[hsl(var(--bg-hover))] rounded animate-pulse`}/>;

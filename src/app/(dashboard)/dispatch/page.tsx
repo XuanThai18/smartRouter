@@ -4,9 +4,10 @@ import {
   ClipboardList, Truck, MapPin, Clock,
   CheckCircle2, ChevronRight, Printer, RefreshCw,
 } from "lucide-react";
+import { fetchApi, postApi } from "@/lib/fetchApi";
 
 interface Stop   { id:string; position:number; arrivalEst:number; departureEst:number; status:string; order:{customerName:string;address:string;demandKg:number;phone?:string} }
-interface Route  { id:string; vehicle:{plate:string;name:string}; distance:number; co2:number; cost:number; loadUsed:number; feasible:boolean; stops:Stop[] }
+interface Route  { id:string; vehicle:{plate:string;name:string}; distance:number; co2:number; cost:number; loadUsed:number; timeUsed?:number; feasible:boolean; stops:Stop[] }
 interface Plan   { id:string; date:string; status:string; routes:Route[]; createdAt:string }
 
 const COLORS = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4"];
@@ -32,7 +33,7 @@ export default function DispatchPage() {
 
   const load = async () => {
     setLoading(true);
-    const data = await fetch("/api/optimize").then(r=>r.json());
+    const data = await fetchApi<Plan[]>("/api/optimize");
     setPlans(data);
     if (data.length && !selected) setSelected(data[0]);
     setLoading(false);
@@ -43,11 +44,8 @@ export default function DispatchPage() {
   const handleDispatch = async () => {
     if (!selected) return;
     setDispatching(true);
-    const res = await fetch("/api/optimize/dispatch", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ planId: selected.id }),
-    });
-    if (res.ok) { await load(); }
+    const res = await postApi("/api/optimize/dispatch", { planId: selected.id });
+    if (res) { await load(); }
     setDispatching(false);
   };
 
@@ -240,7 +238,7 @@ export default function DispatchPage() {
                                 {/* Return trip */}
                                 {route.stops.length > 0 && (
                                   <div className="absolute top-1/2 -translate-y-1/2 h-0.5 bg-[hsl(var(--text-muted))] opacity-50" 
-                                    style={{ left: `${(route.stops[route.stops.length-1].departureEst - minTime) / totalMins * 100}%`, width: `${(360 + route.timeUsed - route.stops[route.stops.length-1].departureEst) / totalMins * 100}%` }} title="Về kho" />
+                                    style={{ left: `${(route.stops[route.stops.length-1].departureEst - minTime) / totalMins * 100}%`, width: `${(route.stops[route.stops.length-1].departureEst + 60 - route.stops[route.stops.length-1].departureEst) / totalMins * 100}%` }} title="Về kho" />
                                 )}
                               </div>
                             </div>

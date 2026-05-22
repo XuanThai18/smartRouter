@@ -5,6 +5,7 @@ import {
   Truck, CheckCircle2, Circle, Clock, Navigation2,
   Play, Square, BarChart3, Package, Leaf, Loader2, Search
 } from "lucide-react";
+import { fetchApi, postApi } from "@/lib/fetchApi";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 interface LatLng { lat: number; lng: number }
@@ -68,8 +69,10 @@ export default function TrackingPage() {
 
   // Fetch real dispatched routes
   useEffect(() => {
-    fetch("/api/optimize").then(r=>r.json()).then(data => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fetchApi<any[]>("/api/optimize").then(data => {
       // Find the latest DISPATCHED plan (or READY if none dispatched yet)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const plan = data.find((p:any) => ["DISPATCHED", "READY", "ON_ROUTE"].includes(p.status));
       if (!plan) { setLoading(false); return; }
 
@@ -81,6 +84,7 @@ export default function TrackingPage() {
 
       setAlgoStats({ feasible: plan.paretoFront?.length || 0, savePct: 28.3 });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dynVehicles: VehicleData[] = plan.routes.map((r:any, i:number) => ({
         id: r.vehicleId,
         plate: r.vehicle.plate,
@@ -88,9 +92,11 @@ export default function TrackingPage() {
         color: COLORS[i % COLORS.length],
         route: [
           { lat: depotLat, lng: depotLng },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ...r.stops.map((s:any) => ({ lat: s.order.lat, lng: s.order.lng })),
           { lat: depotLat, lng: depotLng }
         ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         stops: r.stops.map((s:any) => ({
           name: s.order.customerName,
           address: s.order.address,
@@ -219,18 +225,19 @@ export default function TrackingPage() {
         let any=false;
         let allDone=true;
         vehicles.forEach(v=>{
-          if(next[v.id]<1){
-             next[v.id]=Math.min(1,(next[v.id]||0)+0.005);
+          const currentP = next[v.id] || 0;
+          if(currentP < 1){
+             next[v.id] = Math.min(1, currentP + 0.005);
              any=true;
           }
-          if (next[v.id] < 1) allDone = false;
+          if ((next[v.id] || 0) < 1) allDone = false;
         });
         if(!any){
           clearInterval(intvRef.current!);
           setSimRunning(false);
           // Auto-complete the plan when simulation ends
           if (allDone && planId) {
-            fetch("/api/optimize/complete", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ planId }) });
+            postApi("/api/optimize/complete", { planId });
           }
         }
         return next;
