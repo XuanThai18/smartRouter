@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(MANAGER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Vehicle {
+  id             String        @id @default(cuid())
+  plate          String        @unique
+  name           String
+  capacityKg     Float
+  costPerKm      Float         @default(2.0)
+  emissionPerKm  Float         @default(0.21)
+  status         VehicleStatus @default(AVAILABLE)
+  maintenanceAt  DateTime?
+  driverId       String?
+  driver         Driver?       @relation(fields: [driverId], references: [id])
+  routes         Route[]
+  createdAt      DateTime      @default(now())
+}
+
+model Driver {
+  id        String    @id @default(cuid())
+  name      String
+  phone     String
+  licenseNo String?
+  status    String    @default("ACTIVE")
+  vehicle   Vehicle[]
+  createdAt DateTime  @default(now())
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  code         String      @unique @default(cuid())
+  customerName String
+  phone        String?
+  address      String
+  lat          Float
+  lng          Float
+  demandKg     Float
+  twStart      Int         // phút từ đầu ngày (0-480)
+  twEnd        Int
+  serviceMin   Int         @default(10)
+  status       OrderStatus @default(PENDING)
+  date         DateTime    @default(now())
+  routeStop    RouteStop?
+  createdAt    DateTime    @default(now())
+}
+
+model RoutePlan {
+  id          String      @id @default(cuid())
+  date        DateTime
+  status      PlanStatus  @default(DRAFT)
+  algoConfig  Json        // { mode, popSize, generations, ... }
+  paretoFront Json?       // array of pareto solutions
+  selectedIdx Int?
+  routes      Route[]
+  createdAt   DateTime    @default(now())
+}
+
+model Route {
+  id          String     @id @default(cuid())
+  planId      String
+  plan        RoutePlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  vehicleId   String
+  vehicle     Vehicle    @relation(fields: [vehicleId], references: [id])
+  sequence    Json       // array of order IDs in visit order
+  distance    Float
+  co2         Float
+  cost        Float
+  loadUsed    Float
+  feasible    Boolean    @default(false)
+  stops       RouteStop[]
+  createdAt   DateTime   @default(now())
+}
+
+model RouteStop {
+  id           String   @id @default(cuid())
+  routeId      String
+  route        Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  orderId      String   @unique
+  order        Order    @relation(fields: [orderId], references: [id])
+  position     Int
+  arrivalEst   Int      // phút từ đầu ngày
+  departureEst Int
+  status       StopStatus @default(PENDING)
+  createdAt    DateTime @default(now())
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  DRIVER
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  ON_ROUTE
+  MAINTENANCE
+}
+
+enum OrderStatus {
+  PENDING
+  ASSIGNED
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+enum PlanStatus {
+  DRAFT
+  OPTIMIZING
+  READY
+  DISPATCHED
+  COMPLETED
+}
+
+enum StopStatus {
+  PENDING
+  ARRIVED
+  DELIVERED
+  FAILED
+}
