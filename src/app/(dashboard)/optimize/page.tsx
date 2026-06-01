@@ -60,6 +60,7 @@ export default function OptimizePage() {
   });
 
   const [running, setRunning]         = useState(false);
+  const [jobProgress, setJobProgress] = useState({ pct: 0, message: "" });
   const [result, setResult]           = useState<OptimizeResponse | null>(null);
   const [selected, setSelected]       = useState<ParetoPointDTO | null>(null);
   const [dispatching, setDispatching] = useState(false);
@@ -73,21 +74,59 @@ export default function OptimizePage() {
   const setField = <K extends keyof OptimizeRequest>(key: K, value: OptimizeRequest[K]) =>
     setConfig((p) => ({ ...p, [key]: value }));
 
-  // ── Run ────────────────────────────────────────────────────────────────────
+  // ── Run với Background Queue + SSE ─────────────────────────────────────────
 
   const handleRun = async () => {
     setRunning(true);
     setResult(null);
     setSelected(null);
+    setJobProgress({ pct: 0, message: "Đang gửi yêu cầu tối ưu..." });
+
     try {
-      const data = await postApi<OptimizeResponse>("/api/optimize", config);
-      setResult(data);
-      if (data.pareto?.length) setSelected(data.pareto[0]);
-      toast("success", "Tối ưu xong", `${data.paretoSize} nghiệm · ${data.feasible} khả thi`);
+      // 1. Gửi POST → nhận 202 + jobId
+      const res = await fetch("/api/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error ?? "Lỗi khi tạo job tối ưu hóa");
+      }
+
+      const { jobId } = json.data as { jobId: string; planId: string };
+
+      // 2. Mở SSE stream để nhận real-time progress
+      const es = new EventSource(`/api/optimize/stream?jobId=${jobId}`);
+
+      es.addEventListener("progress", (e) => {
+        const { pct, message } = JSON.parse(e.data) as { pct: number; message: string };
+        setJobProgress({ pct, message });
+      });
+
+      es.addEventListener("done", (e) => {
+        es.close();
+        const data = JSON.parse(e.data) as OptimizeResponse;
+        setResult(data);
+        if (data.pareto?.length) setSelected(data.pareto[0]);
+        setRunning(false);
+        toast("success", "Tối ưu hoàn tất", `${data.paretoSize} nghiệm · ${data.feasible} khả thi`);
+      });
+
+      es.addEventListener("error", (e) => {
+        es.close();
+        const data = JSON.parse((e as MessageEvent).data ?? "{}") as { message?: string };
+        setRunning(false);
+        toast("error", "Lỗi tối ưu", data.message ?? "Lỗi kết nối");
+      });
+
+      // Cleanup khi component unmount
+      return () => es.close();
+
     } catch (err) {
-      toast("error", "Lỗi tối ưu", err instanceof Error ? err.message : "Lỗi kết nối");
-    } finally {
       setRunning(false);
+      toast("error", "Lỗi tối ưu", err instanceof Error ? err.message : "Lỗi kết nối");
     }
   };
 
@@ -266,23 +305,44 @@ export default function OptimizePage() {
             </div>
           )}
 
-          {/* Running state */}
+          {/* Running state — Real-time Progress */}
           {running && (
-            <div className="bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] rounded-[var(--radius)] flex flex-col items-center justify-center py-24 gap-4">
-              <Loader2 className="w-9 h-9 text-[hsl(var(--primary))] animate-spin" />
-              <div className="text-center">
+            <div className="bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] rounded-[var(--radius)] flex flex-col items-center justify-center py-20 gap-5">
+              <div className="relative">
+                <Loader2 className="w-10 h-10 text-[hsl(var(--primary))] animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[9px] font-bold text-[hsl(var(--primary))]">
+                    {jobProgress.pct}%
+                  </span>
+                </div>
+              </div>
+              <div className="text-center w-72">
                 <p className="text-sm font-semibold text-[hsl(var(--text))]">
                   {config.mode === "nsga2" ? "NSGA-II đang tiến hóa..." : "Weighted GA đang tối ưu..."}
                 </p>
-                <p className="text-xs text-[hsl(var(--text-muted))] mt-1">
-                  {config.generations} thế hệ · {config.populationSize} cá thể
+                <p className="text-xs text-[hsl(var(--text-muted))] mt-1.5 min-h-[1.25rem]">
+                  {jobProgress.message || `${config.generations} thế hệ · ${config.populationSize} cá thể`}
                 </p>
               </div>
-              <div className="w-56 h-1.5 bg-[hsl(var(--bg-hover))] rounded-full overflow-hidden">
-                <div className="h-full bg-[hsl(var(--primary))] rounded-full animate-pulse" style={{ width: "60%" }} />
+              {/* Progress Bar thật */}
+              <div className="w-72 space-y-1.5">
+                <div className="w-full h-2.5 bg-[hsl(var(--bg-hover))] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      width: `${jobProgress.pct}%`,
+                      background: "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--purple)))",
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-[hsl(var(--text-muted))]">
+                  <span>Đang xử lý trong background...</span>
+                  <span>{jobProgress.pct}%</span>
+                </div>
               </div>
             </div>
           )}
+
 
           {/* Results */}
           {result && (

@@ -227,9 +227,13 @@ export default function OrdersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[hsl(var(--text-muted))]"/>
           <input value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="Tìm theo tên, địa chỉ..."
-            className="pl-9 pr-3 py-2 input w-60" />
+            className="!pl-9 !pr-3 !py-2 input w-60" />
         </div>
         <div className="flex items-center gap-2">
+          <a href={`/api/export/orders?status=${statusTab || "ALL"}`}
+            className="btn-secondary text-xs" download>
+            <Upload className="w-3.5 h-3.5 rotate-180" /> Xuất Excel
+          </a>
           <button onClick={()=>fileRef.current?.click()}
             className="btn-secondary text-xs">
             <Upload className="w-3.5 h-3.5"/>
@@ -239,6 +243,7 @@ export default function OrdersPage() {
           <button onClick={()=>setShowAdd(true)} className="btn-primary text-xs">
             <Plus className="w-3.5 h-3.5"/> Thêm đơn
           </button>
+
         </div>
       </div>
 

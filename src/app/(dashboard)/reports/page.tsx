@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { BarChart3, TrendingDown, Leaf, DollarSign, Package, CheckCircle2 } from "lucide-react";
+import { BarChart3, TrendingDown, Leaf, DollarSign, Package, CheckCircle2, Upload } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   AreaChart, Area, BarChart, Bar, CartesianGrid, Legend,
@@ -49,6 +49,13 @@ export default function ReportsPage() {
 
   return (
     <div className="p-6 space-y-4 w-full">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-xl font-bold text-[hsl(var(--text))]">Báo cáo & Phân tích</h1>
+        <a href="/api/export/report" className="btn-secondary text-xs" download>
+          <Upload className="w-3.5 h-3.5 rotate-180" /> Xuất PDF
+        </a>
+      </div>
+
 
       {/* KPIs */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">

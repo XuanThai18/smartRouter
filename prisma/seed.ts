@@ -1,9 +1,27 @@
 // @ts-nocheck  ← bỏ nếu muốn strict type check
 import { PrismaClient, VehicleStatus, OrderStatus } from "@prisma/client";
+import { hash } from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
+  // ── Users (Admin & Manager demo) ──────────────────────────────────────────
+  const adminHash   = await hash("admin123",   10);
+  const managerHash = await hash("manager123", 10);
+
+  await prisma.user.upsert({
+    where:  { email: "admin@smartroute.vn" },
+    update: {},
+    create: { name: "Quản trị viên", email: "admin@smartroute.vn",   passwordHash: adminHash,   role: "ADMIN"   },
+  });
+  await prisma.user.upsert({
+    where:  { email: "manager@smartroute.vn" },
+    update: {},
+    create: { name: "Điều phối viên", email: "manager@smartroute.vn", passwordHash: managerHash, role: "MANAGER" },
+  });
+
+  console.log("✅ Users seeded: admin@smartroute.vn / admin123");
+
   // ── Vehicles ──────────────────────────────────────────────────────────────
   await prisma.vehicle.createMany({
     data: [

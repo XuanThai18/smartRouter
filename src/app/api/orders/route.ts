@@ -4,6 +4,9 @@ import prisma from "@/lib/db";
 import { ok, created, badRequest, notFound, serverError, validationError } from "@/lib/api";
 import { CreateOrderSchema, UpdateOrderSchema } from "@/lib/validators/order.schema";
 import { DEFAULT_PAGE_LIMIT } from "@/lib/constants";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 // ── GET /api/orders ──────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -57,6 +60,11 @@ export async function POST(req: NextRequest) {
         date:         parsed.date ? new Date(parsed.date) : new Date(),
       },
     });
+
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+      await logAudit(session.user.id, "CREATE", "Order", order.id, { code: order.code, address: order.address });
+    }
 
     return created(order);
   } catch (err) {
