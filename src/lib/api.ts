@@ -20,6 +20,10 @@ export function notFound(message = "Không tìm thấy tài nguyên"): NextRespo
   return NextResponse.json({ ok: false, error: message }, { status: 404 });
 }
 
+export function forbidden(message = "Không có quyền truy cập"): NextResponse {
+  return NextResponse.json({ ok: false, error: message }, { status: 403 });
+}
+
 export function badRequest(
   message: string,
   details?: Record<string, string[]>

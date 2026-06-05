@@ -15,6 +15,7 @@ model User {
   role         Role     @default(MANAGER)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  driver       Driver?  // 1-1 với hồ sơ tài xế (nếu role = DRIVER)
 }
 
 model Vehicle {
@@ -34,6 +35,10 @@ model Vehicle {
 
 model Driver {
   id        String    @id @default(cuid())
+  // ── Liên kết tài khoản đăng nhập ──────────────────────────────────────────
+  userId    String?   @unique          // FK → User (null = chưa cấp tài khoản)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // ── Thông tin nghiệp vụ ────────────────────────────────────────────────────
   name      String
   phone     String
   licenseNo String?

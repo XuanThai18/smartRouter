@@ -32,11 +32,17 @@ export async function POST(req: NextRequest) {
     }
 
     const vehicleCount = await prisma.vehicle.count({
-      where: { status: "AVAILABLE" },
+      where: {
+        status:   "AVAILABLE",
+        driverId: { not: null }, // Chỉ tính xe đã được gán tài xế
+      },
     });
 
     if (vehicleCount === 0) {
-      return badRequest("Không có xe nào khả dụng");
+      return badRequest(
+        "Không thể tối ưu: Không có xe nào vừa ở trạng thái AVAILABLE vừa được gán tài xế. " +
+        "Vui lòng vào trang Tài xế để gán tài xế cho xe trước khi chạy thuật toán."
+      );
     }
 
     // Tạo bản ghi RoutePlan với status OPTIMIZING để tracking

@@ -5,178 +5,107 @@
 
 ## MỤC LỤC
 1. Tổng quan Dự án
-2. Cấu trúc và Công nghệ 
-3. Kiến trúc Phần mềm
+2. Cấu trúc và Công nghệ (Cập nhật Kiến trúc Async)
+3. Kiến trúc Phần mềm và Luồng Dữ liệu
 4. Mô hình Dữ liệu (Database Schema)
 5. Đặc tả Module và Chức năng Nghiệp vụ
-6. Cốt lõi Trí tuệ Nhân tạo: Thuật toán NSGA-II
+6. Cốt lõi Trí tuệ Nhân tạo: Thuật toán NSGA-II (TypeScript)
 7. Thiết kế Giao diện (UI/UX)
 8. Đánh giá và Hướng phát triển
 
 ---
 
 ## 1. TỔNG QUAN DỰ ÁN (PROJECT OVERVIEW)
-### 1.1. Đặt vấn đề
-Trong kỷ nguyên Thương mại điện tử và Logistics hiện đại, chi phí vận tải chiếm tỷ trọng lớn trong cơ cấu giá thành sản phẩm. Bài toán tối ưu hóa định tuyến xe (Vehicle Routing Problem - VRP) đặc biệt là khi có thêm ràng buộc về sức chứa (Capacitated) và khung thời gian giao nhận (Time Windows) trở thành một bài toán tối ưu tổ hợp cực kỳ phức tạp (NP-Hard).
-Thêm vào đó, áp lực về "Logistics Xanh" buộc các doanh nghiệp không chỉ quan tâm đến bài toán "Chi phí" mà còn phải giải bài toán "Môi trường" (giảm phát thải CO2).
-
-### 1.2. Giải pháp đề xuất: SmartRoute
-SmartRoute là nền tảng quản trị Logistics toàn diện được xây dựng nhằm giải quyết bài toán trên. Hệ thống tự động phân bổ hàng trăm đơn hàng cho một đội xe với mục tiêu **kép**: 
-1. Tối thiểu hóa Tổng quãng đường (liên quan trực tiếp tới chi phí xăng dầu, khấu hao).
-2. Tối thiểu hóa Lượng phát thải CO2.
+Trong kỷ nguyên Thương mại điện tử, bài toán tối ưu hóa định tuyến xe (VRP) với ràng buộc sức chứa và thời gian (MO-CVRPTW) là vô cùng phức tạp (NP-Hard). SmartRoute giải quyết bài toán này với mục tiêu **kép**: 
+1. Tối thiểu hóa Chi phí Vận hành (Quãng đường / Tiền xăng).
+2. Tối thiểu hóa Lượng phát thải Môi trường (CO2).
 
 ---
 
 ## 2. CẤU TRÚC VÀ CÔNG NGHỆ (TECHNOLOGY STACK)
-Hệ thống sử dụng các công nghệ hiện đại nhất, tuân thủ nguyên tắc thiết kế phân tán:
+Hệ thống sử dụng các công nghệ hiện đại, tuân thủ nguyên tắc thiết kế phân tán với Background Worker:
 
-* **Frontend (Giao diện người dùng & Nghiệp vụ Client):**
-  * **Framework:** Next.js (React) kiến trúc App Router - Tối ưu hóa SEO và Server-Side Rendering (SSR).
-  * **Styling:** Tailwind CSS - Cung cấp tiện ích định dạng nhanh, tùy biến sâu sắc Dark Mode.
-  * **Mapping:** Leaflet.js & OpenStreetMap - Render bản đồ số, vẽ đa giác (polygon), vẽ đường đi (polyline) thời gian thực.
-  * **Visualization:** Recharts - Vẽ biểu đồ trực quan hóa dữ liệu (PieChart, AreaChart).
-  * **Icons:** Lucide React.
+* **Frontend (Trải nghiệm Người dùng):**
+  * **Framework:** Next.js (App Router) với React Server Components.
+  * **Styling:** Tailwind CSS (Dark Mode).
+  * **Bản đồ:** Leaflet.js & OpenStreetMap.
+  * **Biểu đồ:** Recharts.
   
-* **Backend (Máy chủ xử lý API & CSDL):**
+* **Backend (API & CSDL):**
   * **Framework:** Next.js Route Handlers (Node.js).
-  * **ORM (Object-Relational Mapping):** Prisma - Quản lý schema database, migration và query type-safe.
-  * **Database:** Relational Database (SQLite/PostgreSQL) lưu trữ cấu trúc.
-  * **External Services:** Photon API (từ Komoot) sử dụng dữ liệu OpenStreetMap để Geocoding (chuyển đổi địa chỉ văn bản thành Tọa độ GPS).
+  * **Xác thực:** NextAuth.js (Quản lý JWT Session & Phân quyền Role-based).
+  * **ORM:** Prisma (Type-safe database client).
+  * **Database:** Relational Database (PostgreSQL / SQLite).
   
-* **Optimization Engine (Lõi xử lý thuật toán tối ưu):**
-  * **Ngôn ngữ:** Python 3.
-  * **Thư viện AI:** DEAP (Distributed Evolutionary Algorithms in Python) để chạy thuật toán Di truyền.
-  * **Thư viện tính toán:** NumPy, Pandas, SciPy.
-  * **Giao tiếp:** Tích hợp gọi chéo (Cross-process / HTTP REST) từ Node.js sang Python.
+* **Optimization Engine & Queue (Lõi AI Bất đồng bộ):**
+  * **Message Queue:** BullMQ & IORedis (chạy trên Docker).
+  * **Background Worker:** Một tiến trình Node.js độc lập (`npm run worker`) chuyên xử lý tính toán nặng.
+  * **Ngôn ngữ lõi AI:** 100% TypeScript. Thuật toán NSGA-II được viết thuần túy bằng TypeScript không phụ thuộc Python, tận dụng V8 Engine JIT Compilation.
 
 ---
 
 ## 3. KIẾN TRÚC PHẦN MỀM (SOFTWARE ARCHITECTURE)
-Hệ thống tuân thủ kiến trúc **Client-Server** kết hợp **Micro-services Lite** (tách biệt Core Backend và AI Engine).
+Hệ thống tuân thủ kiến trúc **Web Server - Message Queue - Background Worker**.
 
-### 3.1. Luồng xử lý dữ liệu (Data Flow)
-1. **Thu thập dữ liệu (Ingestion):** Người dùng (Dispatcher) tải lên file Excel đơn hàng hoặc tạo thủ công.
-2. **Tiền xử lý & Nội suy tọa độ (Geocoding pipeline):** Dữ liệu dạng chữ được gửi tới Photon API. Nếu API thất bại (do rate-limit hoặc sai địa chỉ), hệ thống kích hoạt cơ chế Fallback nội bộ: Cấp phát tọa độ vệ tinh xung quanh khu vực Depot, hoặc yêu cầu người dùng ghim tay (Map Picker) để đảm bảo không thất thoát đơn hàng.
-3. **Đóng gói (Payload generation):** Core Backend lọc các đơn hàng `PENDING` và danh sách xe `AVAILABLE`, tính toán ma trận khoảng cách (Distance Matrix) và gửi payload JSON sang Python Engine.
-4. **Tối ưu hóa (Optimization):** Python nhận payload, chạy thuật toán NSGA-II trong không gian tìm kiếm đa chiều. Output là tập nghiệm Pareto, hệ thống tự động chọn một nghiệm tối ưu nhất.
-5. **Gán tuyến (Dispatching):** Cập nhật CSDL: Đổi trạng thái đơn thành `ASSIGNED`, xe thành `ON_ROUTE`, lưu các điểm dừng (Stops) vào Database.
-6. **Mô phỏng (Simulation):** Frontend định kỳ poll trạng thái, render chuyển động của xe trên bản đồ bằng thuật toán nội suy khoảng cách tuyến tính giữa các tọa độ GPS.
+### 3.1. Luồng xử lý Tối ưu hóa (Asynchronous Data Flow)
+1. **Trigger:** Người dùng bấm "Tối ưu". Frontend gọi API POST tới `/api/optimize`.
+2. **Queueing:** API Next.js đóng gói dữ liệu (Đơn hàng, Xe tải) và đẩy một Job vào **BullMQ (Redis)**, sau đó trả về ngay ID của Job (Response Time < 50ms).
+3. **Processing:** Tiến trình **Background Worker** bắt lấy Job từ Redis, tiến hành chạy thuật toán NSGA-II (tốn vài chục giây) chiếm dụng CPU của Worker (Web Server vẫn mượt mà).
+4. **Progress Tracking:** Worker liên tục cập nhật `% tiến độ` lên Redis.
+5. **SSE Stream:** Frontend mở một kết nối Server-Sent Events (`/api/optimize/stream`) để lắng nghe cập nhật từ Redis và vẽ Progress Bar cho người dùng xem theo thời gian thực.
+6. **Completion:** Khi AI chạy xong, kết quả lộ trình được Worker lưu thẳng vào Database và đánh dấu Job hoàn thành.
 
 ---
 
 ## 4. MÔ HÌNH DỮ LIỆU (DATABASE SCHEMA)
-Hệ thống được thiết kế với các thực thể cốt lõi sau (thiết kế qua Prisma Schema):
+Hệ thống sử dụng Prisma Schema với các Model cốt lõi:
 
-1. **Order (Đơn hàng):**
-   - `id`, `code` (Mã đơn).
-   - `customerName`, `address` (Vị trí giao hàng).
-   - `lat`, `lng` (Tọa độ địa lý chuẩn xác).
-   - `demandKg` (Tải trọng hàng hóa).
-   - `timeWindowStart`, `timeWindowEnd` (Khung giờ bắt buộc phải giao).
-   - `status`: Khởi tạo (`PENDING`) -> Phân công (`ASSIGNED`) -> Đang giao (`IN_TRANSIT`) -> Thành công (`DELIVERED`) / Thất bại (`FAILED`).
-
-2. **Vehicle (Xe tải):**
-   - `id`, `plateNumber` (Biển số).
-   - `capacityKg` (Sức chứa tối đa).
-   - `fuelPer100km`, `co2PerKm` (Chỉ số Môi trường / Nhiên liệu).
-   - `status`: `AVAILABLE` (Sẵn sàng), `ON_ROUTE` (Đang chạy), `MAINTENANCE` (Bảo dưỡng).
-
-3. **Route (Tuyến đường):**
-   - Gắn kết 1 Vehicle với N Order.
-   - Lưu trữ: `totalDistance`, `totalCost`, `totalCo2`.
-   - Lưu lộ trình Polyline (Chuỗi tọa độ JSON để vẽ map).
-
-4. **RouteStop (Điểm dừng):**
-   - Quan hệ 1-N từ Route. Xác định thứ tự giao hàng (Sequence).
-   - Chứa tọa độ và thời gian dự kiến đến (ETA).
+1. **User:** `id`, `email`, `password`, `role` (ADMIN, MANAGER, DRIVER). Có liên kết 1-1 với `Driver`.
+2. **Driver (Tài xế):** `id`, `userId` (Liên kết với User account), `name`, `phone`, `licenseNo`, `status`. Phục vụ quy trình quản lý nhân sự chuẩn ERP.
+3. **Order (Đơn hàng):** `id`, `code`, `customerName`, `address`, `lat`, `lng`, `demandKg`, `timeWindowStart`, `timeWindowEnd`, `status`.
+4. **Vehicle (Xe tải):** `id`, `plateNumber`, `capacityKg`, `fuelPer100km`, `co2PerKm`, `status`, `driverId` (FK tới Driver). Xe không có tài xế sẽ không được phép chạy tối ưu.
+4. **RoutePlan (Kế hoạch / Phiên AI):** `id`, `createdAt`, `status` (DRAFT, READY, COMPLETED).
+5. **Route (Tuyến của 1 xe):** Thuộc về 1 `RoutePlan` và 1 `Vehicle`. Chứa `totalDistance`, `totalCost`, `totalCo2`, `polyline`.
+6. **RouteStop (Điểm dừng):** Chi tiết thứ tự `sequence`, ETA cho từng `Order` trên một `Route`.
 
 ---
 
 ## 5. ĐẶC TẢ MODULE VÀ CHỨC NĂNG NGHIỆP VỤ
-
-### 5.1. Module 1: Ops Center (Trung tâm Điều hành - Dashboard)
-- **Mục đích:** Là trái tim của hệ thống vận hành. Giúp Điều phối viên theo dõi "Sức khỏe" của toàn bộ hệ thống ngay trong thời gian thực (Real-time).
-- **Tính năng:**
-  - Auto-refresh dữ liệu 15 giây/lần.
-  - KPI Cards: Số đơn chờ phân công, Số xe đang rảnh, Số đơn đang trên đường giao, Tỷ lệ hoàn thành trong ngày (Delivery Success Rate).
-  - Biểu đồ phân bổ trạng thái dạng Donut Chart trực quan.
-  - Hệ thống Cảnh báo thông minh (Smart Alert): Banner màu cam nhấp nháy tự động xuất hiện khi có đơn hàng ùn ứ chưa được xếp xe, kèm nút kích hoạt "Tối ưu ngay".
-
-### 5.2. Module 2: Order Management (Quản lý đơn & Tìm tọa độ)
-- **Mục đích:** Số hóa đầu vào của Logistics.
-- **Tính năng:**
-  - **Batch Import:** Đọc file Excel đa luồng, hỗ trợ lên tới hàng ngàn đơn.
-  - **Smart Map Picker:** Với các địa chỉ mà AI/API không thể dịch ra tọa độ, hệ thống cung cấp bản đồ Leaflet tích hợp ngay trong form. Người dùng chỉ việc kéo thả cờ (Marker) ghim đúng vị trí nhà khách hàng. Hệ thống tự động dịch ngược tọa độ (Lat/Lng) vào form.
-
-### 5.3. Module 3: Fleet Management (Quản lý đội xe)
-- **Mục đích:** Quản lý tài sản (Assets).
-- **Tính năng:**
-  - Khai báo tải trọng, định mức tiêu thụ nhiên liệu.
-  - Bật/tắt trạng thái bảo trì xe.
-  - Hiển thị danh sách xe dưới dạng Data Table chuẩn.
-
-### 5.4. Module 4: Routing & Dispatch (Tối ưu & Điều phối)
-- **Mục đích:** Module lõi tạo ra lợi nhuận cho doanh nghiệp.
-- **Tính năng:**
-  - Giao diện 1 click "Chạy thuật toán".
-  - Quản lý các phiên tối ưu hóa. Bảng kết quả so sánh chi tiết quãng đường, chi phí tiết kiệm được so với việc điều phối chạy tay (Baseline).
-  - Bản đồ hiển thị trước (Preview) đường đi của các xe dưới dạng mạng nhện nhiều màu sắc để người dùng duyệt trước khi xuất bến.
-
-### 5.5. Module 5: GPS Tracking (Theo dõi Thời gian thực)
-- **Mục đích:** Giám sát tiến độ giao hàng của tài xế.
-- **Tính năng:**
-  - Render Polyline (đường line) dọc theo các điểm giao hàng trên nền bản đồ Dark mode.
-  - Sử dụng thuật toán Timer / Interpolation trên trình duyệt để di chuyển icon chiếc xe tải từ điểm A sang điểm B dựa trên tiến độ (Progress %), mô phỏng chính xác hệ thống GPS.
-
-### 5.6. Module 6: Analytics Reports (Báo cáo Phân tích)
-- **Mục đích:** Dành cho cấp Quản lý (Management Level) nhìn nhận hiệu quả thuật toán.
-- **Tính năng:**
-  - Biểu đồ AreaChart thống kê luồng đơn hàng 7 ngày.
-  - Các thống kê lũy kế: Tiết kiệm CO2, Giảm thiểu chi phí ($).
+- **Auth Module:** Quản lý truy cập bằng NextAuth. Cấu hình Middleware chặn quyền cứng theo Role (DRIVER chỉ truy cập `/my-routes`, chặn toàn bộ dashboard).
+- **Ops Center (Dashboard):** Thống kê Real-time KPI dành riêng cho khối Quản lý (Admin/Manager).
+- **Driver Management:** Quản lý vòng đời nhân sự chuẩn ERP. Áp dụng cơ chế **Atomic Transaction** trong Database để tạo và cấp phát tài khoản User + Driver Profile đồng thời; đảm bảo xóa sạch dữ liệu offboarding 100%.
+- **Order Management:** Thêm thủ công, Import Excel, Export Excel/PDF. Cung cấp chức năng Smart Map Picker để ghim cờ lấy tọa độ thủ công.
+- **Fleet Management:** Quản lý sức chở, định mức tiêu hao của xe và gắn tài xế vào từng xe.
+- **Driver View (Chuyến của tôi):** Màn hình tối giản dành riêng cho tài xế xem các lệnh điều động cụ thể (Route Stops), theo dõi KPI cá nhân trong ngày.
+- **Routing & Dispatch:** Xem trước (Preview) mạng nhện lộ trình nhiều màu sắc do AI vẽ.
+- **Tracking:** Render xe di chuyển trên bản đồ mô phỏng.
 
 ---
 
-## 6. CỐT LÕI AI: THUẬT TOÁN TIẾN HÓA ĐA MỤC TIÊU (NSGA-II)
-Module tối ưu lộ trình của SmartRoute không sử dụng thuật toán tuần tự (Greedy, Dijkstra) thông thường vì chúng vướng phải "Bẫy tối ưu cục bộ" (Local Optima). Thay vào đó, **NSGA-II (Non-dominated Sorting Genetic Algorithm II)** được sử dụng.
+## 6. CỐT LÕI AI: THUẬT TOÁN TIẾN HÓA NSGA-II (TYPESCRIPT)
+Module tối ưu lộ trình chạy **NSGA-II (Non-dominated Sorting Genetic Algorithm II)**, giải quyết bài toán đa mục tiêu.
 
-### 6.1. Bài toán
-Đây là bài toán **Multi-Objective Capacitated Vehicle Routing Problem with Time Windows (MO-CVRPTW)**.
-- **Ràng buộc cứng:** Tải trọng xe không được vượt quá `capacityKg`. Phải giao hàng trong khung giờ `[start, end]`.
-- **Mục tiêu 1 ($f_1$):** Cực tiểu hóa $\sum (Khoảng\_cách * Đơn\_giá\_xăng)$.
-- **Mục tiêu 2 ($f_2$):** Cực tiểu hóa $\sum (Khoảng\_cách * Hệ\_số\_phát\_thải\_CO2)$.
-
-### 6.2. Mã hóa Nhiễm sắc thể (Chromosome Encoding)
-Mỗi phương án phân xe (Solution) được biểu diễn bằng 1 mảng số nguyên. Ví dụ: `[1, 5, 3, 0, 2, 4]` (0 là dấu phân cách giữa các xe).
-- Tuyến 1: Depot -> Khách 1 -> Khách 5 -> Khách 3 -> Depot.
-- Tuyến 2: Depot -> Khách 2 -> Khách 4 -> Depot.
-
-### 6.3. Tiến hóa sinh học mô phỏng
-1. **Khởi tạo Quần thể (Population):** Tạo ngẫu nhiên 100 - 500 cá thể (phương án phân xe).
-2. **Lai ghép (Crossover):** Order Crossover (OX) - tráo đổi một phần lộ trình giữa 2 cá thể để tạo ra con lai mang đặc tính tốt của cả cha lẫn mẹ.
-3. **Đột biến (Mutation):** Swap Mutation - Đổi chỗ ngẫu nhiên 2 đơn hàng để tránh quần thể bị thoái hóa.
-4. **Phân loại không bị trội (Non-dominated Sorting):** Xếp hạng các cá thể. Những cá thể vừa rẻ vừa ít CO2 sẽ được lên Rank 1 (Mặt trận Pareto).
-5. **Khoảng cách đám đông (Crowding Distance):** Lọc bỏ các cá thể giống nhau để duy trì sự đa dạng sinh học trong thuật toán.
-6. **Tiến hóa (Generations):** Chạy lặp lại 100-300 vòng đời. Sau vòng cuối cùng, trả về phương án tốt nhất trên mặt trận Pareto.
+### 6.1. Chi tiết Thuật toán
+- **Ràng buộc cứng:** Sức chứa xe (`capacityKg`), Khung giờ (`timeWindows`). Các vi phạm sẽ bị cộng dồn thành điểm `penalty` rất cao.
+- **Mục tiêu 1 ($f_1$):** Cực tiểu hóa $\sum (Chi\_phí\_vận\_hành)$.
+- **Mục tiêu 2 ($f_2$):** Cực tiểu hóa $\sum (Lượng\_CO2\_phát\_thải)$.
+- **Tiến hóa (Evolution):**
+  1. Khởi tạo quần thể (Population).
+  2. Lai ghép (Order Crossover - OX).
+  3. Đột biến (Swap Mutation).
+  4. Xếp hạng Pareto (Fast Non-dominated Sort) và Tính khoảng cách đám đông (Crowding Distance).
+  5. Vòng lặp liên tục cho đến khi Quần thể hội tụ. Kết quả là một tập hợp nghiệm (Pareto Front) cho phép người dùng chọn sự đánh đổi giữa Tiết kiệm Xăng và Bảo vệ Môi trường.
 
 ---
 
 ## 7. THIẾT KẾ GIAO DIỆN (UI/UX)
-Hệ thống lấy cảm hứng từ các phần mềm SaaS hiện đại (như Vercel, Linear):
-- **Phối màu (Color Palette):** Nền Đen xám (`hsl(220 14% 8%)`) kết hợp với các dải màu điểm nhấn Neon (Xanh dương, Cam, Xanh lục).
-- **Thành phần (Components):** 
-  - Glassmorphism: Lớp phủ bản đồ mờ ảo (`backdrop-filter: blur()`).
-  - Cards: Sử dụng đường viền mỏng 1px màu xám `hsl(220 14% 19%)` để tạo chiều sâu mà không dùng Shadow sặc sỡ.
-- **Tương tác:** CSS Animations tinh tế (`fade-up`, `pulse-ring` cho cảnh báo, smooth transitions cho hover).
+- Giao diện Responsive (tương thích PC & Tablet) sử dụng Tailwind CSS.
+- **Dark Theme** chuẩn phần mềm doanh nghiệp SaaS (Màu xám than kết hợp Neon nổi bật).
+- **Trải nghiệm Zero-Lag:** Việc tách AI ra Background Worker giúp UI/UX hoàn toàn không bị gián đoạn hay freeze trình duyệt trong quá trình tối ưu.
 
 ---
 
-## 8. ĐÁNH GIÁ VÀ HƯỚNG PHÁT TRIỂN TƯƠNG LAI
-### 8.1. Đánh giá hệ thống hiện tại
-- **Hiệu năng:** Backend đáp ứng tải tốt nhờ tách rời AI Engine. Frontend tải cực mượt nhờ Server Components của Next.js.
-- **Độ chính xác:** Geocoding kết hợp Map Picker tay giải quyết được 100% case lạc đường. NSGA-II đảm bảo tiết kiệm chi phí ổn định so với cách làm thủ công.
-
-### 8.2. Hướng phát triển (Future Works)
-1. **Tích hợp OSRM / Google Maps Distance Matrix API:** Thay vì dùng khoảng cách đường chim bay (Haversine), nâng cấp dùng API đường bộ thực tế (tránh sông hồ, đường một chiều) để có kết quả chính xác hơn.
-2. **Traffic Prediction:** Kết hợp API dự báo kẹt xe để né các khung giờ cao điểm.
-3. **Mobile App cho Tài xế:** Làm app điện thoại để tài xế nhận chuyến, cập nhật trạng thái đơn qua ứng dụng.
-4. **AI Cấp cao:** Đưa Học máy (Machine Learning) vào dự đoán tỷ lệ hủy đơn hoặc thời gian bốc dỡ hàng tại điểm dừng.
+## 8. HƯỚNG PHÁT TRIỂN TƯƠNG LAI
+1. **Live Traffic:** Tích hợp Google Maps Distance Matrix API.
+2. **Mobile App:** Dành riêng cho Driver (Tài xế) để xác nhận đơn hàng thực tế bằng điện thoại.
+3. **Machine Learning:** Phân tích dữ liệu lịch sử để dự đoán thời gian kẹt xe ở từng tuyến phố.

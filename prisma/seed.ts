@@ -20,17 +20,56 @@ async function main() {
     create: { name: "Điều phối viên", email: "manager@smartroute.vn", passwordHash: managerHash, role: "MANAGER" },
   });
 
-  console.log("✅ Users seeded: admin@smartroute.vn / admin123");
+  const driverHash = await hash("driver123", 10);
+  const driverUser = await prisma.user.upsert({
+    where:  { email: "driver@smartroute.vn" },
+    update: {},
+    create: { name: "Nguyễn Văn Tài Xế", email: "driver@smartroute.vn", passwordHash: driverHash, role: "DRIVER" },
+  });
 
-  // ── Vehicles ──────────────────────────────────────────────────────────────
-  await prisma.vehicle.createMany({
-    data: [
-      { plate: "51A-12345", name: "Xe tải nhỏ A",  capacityKg: 500,  costPerKm: 1.8, emissionPerKm: 0.18, status: VehicleStatus.AVAILABLE },
-      { plate: "51B-67890", name: "Xe tải nhỏ B",  capacityKg: 750,  costPerKm: 2.2, emissionPerKm: 0.22, status: VehicleStatus.AVAILABLE },
-      { plate: "51C-11111", name: "Xe van C",       capacityKg: 300,  costPerKm: 1.5, emissionPerKm: 0.15, status: VehicleStatus.AVAILABLE },
-      { plate: "51D-22222", name: "Xe tải lớn D",   capacityKg: 1200, costPerKm: 3.0, emissionPerKm: 0.30, status: VehicleStatus.AVAILABLE },
-    ],
-    skipDuplicates: true,
+  // Tạo hồ sơ Driver và liên kết với User account (ERP standard)
+  await prisma.driver.upsert({
+    where:  { userId: driverUser.id },
+    update: {},
+    create: {
+      userId:    driverUser.id,
+      name:      "Nguyễn Văn Tài Xế",
+      phone:     "0901111222",
+      licenseNo: "012345678901",
+      status:    "ACTIVE",
+    },
+  });
+
+  console.log("✅ Users seeded: admin / manager / driver (@smartroute.vn)");
+
+  // ── Vehicles (upsert từng chiếc để có thể gán driverId) ────────────────────
+  // Lấy driverId vừa tạo bên trên
+  const seededDriver = await prisma.driver.findUnique({
+    where: { userId: driverUser.id },
+    select: { id: true },
+  });
+
+  // Xe 51A: gán cho tài xế demo — ĐỦ ĐIỀU KIỆN chạy NSGA-II
+  await prisma.vehicle.upsert({
+    where:  { plate: "51A-12345" },
+    update: { driverId: seededDriver?.id ?? null },
+    create: { plate: "51A-12345", name: "Xe tải nhỏ A", capacityKg: 500,  costPerKm: 1.8, emissionPerKm: 0.18, status: VehicleStatus.AVAILABLE, driverId: seededDriver?.id ?? null },
+  });
+  // Xe còn lại: chưa gán tài xế → KHÔNG đủ điều kiện chạy
+  await prisma.vehicle.upsert({
+    where:  { plate: "51B-67890" },
+    update: {},
+    create: { plate: "51B-67890", name: "Xe tải nhỏ B",  capacityKg: 750,  costPerKm: 2.2, emissionPerKm: 0.22, status: VehicleStatus.AVAILABLE },
+  });
+  await prisma.vehicle.upsert({
+    where:  { plate: "51C-11111" },
+    update: {},
+    create: { plate: "51C-11111", name: "Xe van C",       capacityKg: 300,  costPerKm: 1.5, emissionPerKm: 0.15, status: VehicleStatus.AVAILABLE },
+  });
+  await prisma.vehicle.upsert({
+    where:  { plate: "51D-22222" },
+    update: {},
+    create: { plate: "51D-22222", name: "Xe tải lớn D",   capacityKg: 1200, costPerKm: 3.0, emissionPerKm: 0.30, status: VehicleStatus.AVAILABLE },
   });
 
   // ── Orders (tọa độ thật TP.HCM) ───────────────────────────────────────────

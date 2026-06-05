@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   LayoutDashboard, Package, Truck, Zap,
-  ClipboardList, MapPin, BarChart3, Route,
+  ClipboardList, MapPin, BarChart3, Route, Users, Navigation2,
 } from "lucide-react";
 
 const NAV = [
@@ -18,16 +18,23 @@ const NAV = [
   {
     group: "Vận hành",
     items: [
-      { href: "/orders",   icon: Package,       label: "Đơn hàng",  roles: ["ADMIN", "MANAGER"] },
-      { href: "/fleet",    icon: Truck,         label: "Đội xe",    roles: ["ADMIN", "MANAGER"] },
-      { href: "/dispatch", icon: ClipboardList, label: "Điều phối", roles: ["ADMIN", "MANAGER"] },
-      { href: "/tracking", icon: MapPin,        label: "Theo dõi",  roles: ["ADMIN", "MANAGER"] },
+      { href: "/orders",    icon: Package,       label: "Đơn hàng",     roles: ["ADMIN", "MANAGER"] },
+      { href: "/fleet",     icon: Truck,         label: "Đội xe",       roles: ["ADMIN", "MANAGER"] },
+      { href: "/drivers",   icon: Users,         label: "Tài xế",       roles: ["ADMIN", "MANAGER"] },
+      { href: "/dispatch",  icon: ClipboardList, label: "Điều phối",    roles: ["ADMIN", "MANAGER"] },
+      { href: "/tracking",  icon: MapPin,        label: "Theo dõi",     roles: ["ADMIN", "MANAGER"] },
     ],
   },
   {
     group: "Tối ưu hóa",
     items: [
-      { href: "/optimize", icon: Zap, label: "Tối ưu tuyến đường", roles: ["ADMIN", "MANAGER"] },
+      { href: "/optimize",  icon: Zap,           label: "Tối ưu tuyến đường", roles: ["ADMIN", "MANAGER"] },
+    ],
+  },
+  {
+    group: "Chuyến của tôi",
+    items: [
+      { href: "/my-routes", icon: Navigation2,   label: "Chuyến hàng",  roles: ["DRIVER"] },
     ],
   },
 ] as const;

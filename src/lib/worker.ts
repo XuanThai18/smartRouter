@@ -83,13 +83,19 @@ async function runOptimization(
 
   await setProgress(job, 5, `Đã tải ${orders.length} đơn hàng. Đang tải đội xe...`);
 
-  // 2. Lấy xe khả dụng
+  // 2. Lấy xe khả dụng và đã có tài xế (điều kiện bắt buộc trong ERP)
   const vehicles = await prisma.vehicle.findMany({
-    where: { status: "AVAILABLE" },
+    where: {
+      status:   "AVAILABLE",
+      driverId: { not: null }, // Xe không có tài xế không thể xuất bến
+    },
+    include: {
+      driver: { select: { id: true, name: true, phone: true } },
+    },
   });
 
   if (vehicles.length === 0) {
-    throw new Error("Không có xe nào khả dụng");
+    throw new Error("Đội xe chưa sẵn sàng: Không có xe nào vừa AVAILABLE vừa được gán tài xế");
   }
 
   await setProgress(job, 8, `Đội xe: ${vehicles.length} xe. Đang khởi tạo thuật toán...`);
@@ -106,11 +112,14 @@ async function runOptimization(
   }));
 
   const vehicleConfigs: VehicleConfig[] = vehicles.map((v) => ({
-    id: v.id,
-    capacityKg: v.capacityKg,
-    costPerKm: v.costPerKm,
+    id:           v.id,
+    capacityKg:   v.capacityKg,
+    costPerKm:    v.costPerKm,
     emissionPerKm: v.emissionPerKm,
-    maxWorkMin: 1_440,
+    maxWorkMin:   1_440,
+    // Thông tin tài xế gắn kèm theo xe (dùng để hiển thị kết quả)
+    driverName:   v.driver?.name ?? "",
+    driverPhone:  v.driver?.phone ?? "",
   }));
 
   const depot = { lat: depotLat, lng: depotLng };
