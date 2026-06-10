@@ -67,6 +67,8 @@ export async function GET(_req: NextRequest) {
               address:      true,
               phone:        true,
               demandKg:     true,
+              lat:          true,
+              lng:          true,
             },
           },
         },
